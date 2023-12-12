@@ -53,7 +53,7 @@ class App:
             # self.clock.tick(0)
             fps = self.clock.get_fps()
             pg.display.set_caption(f'{fps :.1f}')
-            self.delta_time = self.clock.tick(30)
+            self.delta_time = self.clock.tick(0)
 
     def destroy(self):
         self.current_scene.destroy()

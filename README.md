@@ -39,10 +39,10 @@
 
 - Download project
     - `git clone https://github.com/YY-OhioU/GraphicsFinalProject.git`
-- Install dependencies:
-    - `pip install -r requirements`
 - Enter project root
   - `cd GraphicsFinalProject`
+- Install dependencies:
+    - `pip install -r requirements`
 - Decompress neural network model
     - Compressed model is in the `models` folder under the project root
     - Find `model.zip` then unzip it. Place extracted file `model.pth` under `models` folder

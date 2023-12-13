@@ -33,12 +33,12 @@ def get_ray_directions(H,
     fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     if random:
         directions = \
-            torch.stack([(u-cx+torch.rand_like(u))/fx,
-                         (v-cy+torch.rand_like(v))/fy,
+            torch.stack([(u - cx + torch.rand_like(u)) / fx,
+                         (v - cy + torch.rand_like(v)) / fy,
                          torch.ones_like(u)], -1)
     else:  # pass by the center
         directions = \
-            torch.stack([(u-cx+0.5)/fx, (v-cy+0.5)/fy, torch.ones_like(u)], -1)
+            torch.stack([(u - cx + 0.5) / fx, (v - cy + 0.5) / fy, torch.ones_like(u)], -1)
     if flatten:
         directions = directions.reshape(-1, 3)
         grid = grid.reshape(-1, 2)
@@ -46,6 +46,7 @@ def get_ray_directions(H,
     if return_uv:
         return directions, grid
     return directions
+
 
 @torch.cuda.amp.autocast(dtype=torch.float32)
 def get_rays(directions, c2w):
@@ -73,7 +74,7 @@ def get_rays(directions, c2w):
     # The origin of all rays is the camera origin in world coordinate
     rays_o = c2w[..., 3].expand_as(rays_d)
 
-    if(rays_d.shape[1] == 4):
+    if (rays_d.shape[1] == 4):
         rays_d = rays_d[:, :3]
         rays_o = rays_o[:, :3]
 
@@ -103,8 +104,8 @@ def axisangle_to_R(v):
 
     norm_v = rearrange(torch.norm(v, dim=1) + 1e-7, 'b -> b 1 1')
     eye = torch.eye(3, device=v.device)
-    R = eye + (torch.sin(norm_v)/norm_v)*skew_v + \
-        ((1-torch.cos(norm_v))/norm_v**2)*(skew_v@skew_v)
+    R = eye + (torch.sin(norm_v) / norm_v) * skew_v + \
+        ((1 - torch.cos(norm_v)) / norm_v ** 2) * (skew_v @ skew_v)
     if v_ndim == 1:
         R = rearrange(R, '1 c d -> c d')
     return R
@@ -178,7 +179,7 @@ def center_poses(poses, pts3d=None):
     last_row = np.tile(np.array([0, 0, 0, 1]),
                        (len(poses), 1, 1))  # (N_images, 1, 4)
     poses_homo = \
-        np.concatenate([poses, last_row], 1) # (N_images, 4, 4) homogeneous coordinate
+        np.concatenate([poses, last_row], 1)  # (N_images, 4, 4) homogeneous coordinate
 
     poses_centered = pose_avg_inv @ poses_homo  # (N_images, 4, 4)
     poses_centered = poses_centered[:, :3]  # (N_images, 3, 4)

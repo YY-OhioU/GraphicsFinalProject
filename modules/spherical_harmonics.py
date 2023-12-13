@@ -1,14 +1,15 @@
-import torch
 import taichi as ti
+import torch
 
 data_type = ti.f32
 torch_type = torch.float32
 
+
 @ti.kernel
 def dir_encoder(
-    dirs: ti.types.ndarray(), 
-    embedding: ti.types.ndarray(), 
-    B: ti.i32,
+        dirs: ti.types.ndarray(),
+        embedding: ti.types.ndarray(),
+        B: ti.i32,
 ):
     # spherical_harmonics
     ti.loop_config(block_dim=512)
@@ -78,7 +79,7 @@ class DirEncoder(torch.nn.Module):
                     requires_grad=True,
                 )
                 self._dir_encoder_kernel(
-                    input_dir, 
+                    input_dir,
                     output_embedding,
                     input_dir.shape[0]
                 )
@@ -90,7 +91,7 @@ class DirEncoder(torch.nn.Module):
                 input_dir, output_embedding = ctx.saved_tensors
                 output_embedding.grad = doutput
                 self._dir_encoder_kernel.grad(
-                    input_dir, 
+                    input_dir,
                     output_embedding,
                     input_dir.shape[0]
                 )

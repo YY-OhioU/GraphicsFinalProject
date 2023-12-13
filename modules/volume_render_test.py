@@ -1,20 +1,20 @@
 import taichi as ti
 from taichi.math import vec3
 
+
 @ti.kernel
 def composite_test(
-           sigmas: ti.types.ndarray(),
-             rgbs: ti.types.ndarray(),
-           deltas: ti.types.ndarray(),
-               ts: ti.types.ndarray(),
+        sigmas: ti.types.ndarray(),
+        rgbs: ti.types.ndarray(),
+        deltas: ti.types.ndarray(),
+        ts: ti.types.ndarray(),
         pack_info: ti.types.ndarray(),
-    alive_indices: ti.types.ndarray(),
-      T_threshold: float,
-          opacity: ti.types.ndarray(),
-            depth: ti.types.ndarray(),
-              rgb: ti.types.ndarray()
+        alive_indices: ti.types.ndarray(),
+        T_threshold: float,
+        opacity: ti.types.ndarray(),
+        depth: ti.types.ndarray(),
+        rgb: ti.types.ndarray()
 ):
-    
     ti.loop_config(block_dim=256)
     for n in alive_indices:
         start_idx = pack_info[n, 0]
@@ -32,7 +32,7 @@ def composite_test(
             for s in range(steps):
                 s_n = start_idx + s
                 delta = deltas[s_n]
-                a = 1.0 - ti.exp(-sigmas[s_n]*delta)
+                a = 1.0 - ti.exp(-sigmas[s_n] * delta)
 
                 w = a * T
                 tmid = ts[s_n]

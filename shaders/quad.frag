@@ -10,5 +10,5 @@ out vec4 f_color;
 
 void main() {
     f_color = texture(Texture, v_text);
-//    f_color = (v_text)
+    //    f_color = (v_text)
 }

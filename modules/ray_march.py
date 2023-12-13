@@ -7,22 +7,22 @@ from .utils import __morton3D, calc_dt, mip_from_dt, mip_from_pos, torch_type
 
 @ti.kernel
 def raymarching_train_kernel(
-    rays_o: ti.types.ndarray(),
-    rays_d: ti.types.ndarray(),
-    hits_t: ti.types.ndarray(),
-    density_bitfield: ti.types.ndarray(),
-    noise: ti.types.ndarray(),
-    counter: ti.types.ndarray(),
-    rays_a: ti.types.ndarray(),
-    xyzs: ti.types.ndarray(),
-    dirs: ti.types.ndarray(),
-    deltas: ti.types.ndarray(),
-    ts: ti.types.ndarray(),
-    cascades: int,
-    grid_size: int,
-    scale: float,
-    exp_step_factor: float,
-    max_samples: float,
+        rays_o: ti.types.ndarray(),
+        rays_d: ti.types.ndarray(),
+        hits_t: ti.types.ndarray(),
+        density_bitfield: ti.types.ndarray(),
+        noise: ti.types.ndarray(),
+        counter: ti.types.ndarray(),
+        rays_a: ti.types.ndarray(),
+        xyzs: ti.types.ndarray(),
+        dirs: ti.types.ndarray(),
+        deltas: ti.types.ndarray(),
+        ts: ti.types.ndarray(),
+        cascades: int,
+        grid_size: int,
+        scale: float,
+        exp_step_factor: float,
+        max_samples: float,
 ):
     ti.loop_config(block_dim=128)
     for r in noise:
@@ -32,7 +32,7 @@ def raymarching_train_kernel(
 
         t1, t2 = hits_t[r, 0], hits_t[r, 1]
 
-        grid_size3 = grid_size**3
+        grid_size3 = grid_size ** 3
         grid_size_inv = 1.0 / grid_size
 
         if t1 >= 0:
@@ -133,7 +133,7 @@ def raymarching_train(
         exp_step_factor,
         grid_size,
         max_samples
-    ):
+):
     # noise to perturb the first sample of each ray
     noise = torch.rand_like(rays_o[:, 0])
     counter = torch.zeros(
@@ -196,26 +196,25 @@ def raymarching_train(
 
 @ti.kernel
 def raymarching_test_kernel(
-    rays_o: ti.types.ndarray(),
-    rays_d: ti.types.ndarray(),
-    hits_t: ti.types.ndarray(),
-    alive_indices: ti.types.ndarray(),
-    density_bitfield: ti.types.ndarray(),
-    cascades: int,
-    grid_size: int,
-    scale: float,
-    exp_step_factor: float,
-    max_samples: int,
-    ray_indices: ti.types.ndarray(),
-    valid_mask: ti.types.ndarray(),
-    deltas: ti.types.ndarray(),
-    ts: ti.types.ndarray(),
-    samples_counter: ti.types.ndarray(),
+        rays_o: ti.types.ndarray(),
+        rays_d: ti.types.ndarray(),
+        hits_t: ti.types.ndarray(),
+        alive_indices: ti.types.ndarray(),
+        density_bitfield: ti.types.ndarray(),
+        cascades: int,
+        grid_size: int,
+        scale: float,
+        exp_step_factor: float,
+        max_samples: int,
+        ray_indices: ti.types.ndarray(),
+        valid_mask: ti.types.ndarray(),
+        deltas: ti.types.ndarray(),
+        ts: ti.types.ndarray(),
+        samples_counter: ti.types.ndarray(),
 ):
-
     for n in alive_indices:
         r = alive_indices[n]
-        grid_size3 = grid_size**3
+        grid_size3 = grid_size ** 3
         grid_size_inv = 1.0 / grid_size
 
         ray_o = vec3(rays_o[r, 0], rays_o[r, 1], rays_o[r, 2])
@@ -267,37 +266,37 @@ def raymarching_test_kernel(
 
         samples_counter[n] = s
 
-def raymarching_test(
-    rays_o,
-    rays_d,
-    hits_t,
-    alive_indices,
-    density_bitfield,
-    cascades,
-    scale,
-    exp_step_factor,
-    grid_size,
-    max_samples,
-):
 
+def raymarching_test(
+        rays_o,
+        rays_d,
+        hits_t,
+        alive_indices,
+        density_bitfield,
+        cascades,
+        scale,
+        exp_step_factor,
+        grid_size,
+        max_samples,
+):
     N_rays = alive_indices.size(0)
     ray_indices = torch.empty(
-        N_rays*max_samples,
+        N_rays * max_samples,
         device=rays_o.device,
         dtype=torch.long,
     )
     valid_mask = torch.zeros(
-        N_rays*max_samples,
+        N_rays * max_samples,
         device=rays_o.device,
         dtype=torch.uint8,
     )
     deltas = torch.empty(
-        N_rays*max_samples,
+        N_rays * max_samples,
         device=rays_o.device,
         dtype=rays_o.dtype
     )
     ts = torch.empty(
-        N_rays*max_samples,
+        N_rays * max_samples,
         device=rays_o.device,
         dtype=rays_o.dtype
     )

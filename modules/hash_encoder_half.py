@@ -1,7 +1,6 @@
-import torch
-import taichi as ti
 import numpy as np
-
+import taichi as ti
+import torch
 from taichi.math import uvec3, vec3
 
 ti.init(arch=ti.cuda, half2_vectorization=True)
@@ -9,14 +8,16 @@ ti.init(arch=ti.cuda, half2_vectorization=True)
 data_type = ti.f16
 torch_type = torch.float16
 
+
 def align_to(x, y):
-    return int((x+y-1)/y)*y
+    return int((x + y - 1) / y) * y
+
 
 def res_in_level_np(
-        level_i, 
-        base_res, 
+        level_i,
+        base_res,
         log_per_level_scale
-    ):
+):
     result = np.ceil(
         float(base_res) * np.exp(
             float(level_i) * log_per_level_scale
@@ -24,22 +25,24 @@ def res_in_level_np(
     )
     return float(result + 1)
 
+
 def scale_in_level_np(
-        base_res, 
+        base_res,
         max_res,
         levels,
-    ):
+):
     result = np.log(
         float(max_res) / float(base_res)
     ) / float(levels - 1)
     return result
 
+
 def build_hash_encoder_kernel(
-    log_per_level_scale,
-    base_res: float = 16.0,
-    hash_level: int = 16,
-    feat_dim: int = 2,
-    begin_fast_hash_level: int = 16,
+        log_per_level_scale,
+        base_res: float = 16.0,
+        hash_level: int = 16,
+        feat_dim: int = 2,
+        begin_fast_hash_level: int = 16,
 ):
     """
     This function constructs a Taichi kernel that encodes
@@ -58,7 +61,7 @@ def build_hash_encoder_kernel(
 
     # Type
     feat_vec = ti.types.vector(
-        n=feat_dim, 
+        n=feat_dim,
         dtype=data_type,
     )
 
@@ -81,7 +84,6 @@ def build_hash_encoder_kernel(
             result += ti.uint32(pos_grid_local[i] * stride)
             stride *= resolution
         return result
-
 
     @ti.func
     def grid_pos2hash_index(indicator, pos_grid_local, resolution, map_size):
@@ -111,13 +113,13 @@ def build_hash_encoder_kernel(
 
     @ti.kernel
     def hash_encoder_kernel(
-            xyzs: ti.types.ndarray(vec3), 
+            xyzs: ti.types.ndarray(vec3),
             table: ti.types.ndarray(feat_vec),
-            output_embedding: ti.types.ndarray(feat_vec), 
-            hash_map_sizes: ti.types.ndarray(), 
-            offsets: ti.types.ndarray(), 
+            output_embedding: ti.types.ndarray(feat_vec),
+            hash_map_sizes: ti.types.ndarray(),
+            offsets: ti.types.ndarray(),
             B: ti.i32,
-        ):
+    ):
         # get hash table embedding
         ti.loop_config(block_dim=block_dim)
         for i, level in ti.ndrange(B, hash_level):
@@ -126,7 +128,7 @@ def build_hash_encoder_kernel(
             map_size = hash_map_sizes[level]
 
             scale = grid_scale(level, log_per_level_scale, base_res)
-            resolution =  grid_resolution(scale)
+            resolution = grid_resolution(scale)
 
             pos = xyz * scale + 0.5
             pos_grid = ti.cast(ti.floor(pos), ti.uint32)
@@ -148,7 +150,7 @@ def build_hash_encoder_kernel(
 
                 index = grid_pos2hash_index(
                     level < begin_fast_hash_level,
-                    pos_grid_local, 
+                    pos_grid_local,
                     resolution,
                     map_size,
                 )
@@ -160,16 +162,15 @@ def build_hash_encoder_kernel(
 
             output_embedding[i, level] = local_features
 
-
     @ti.kernel
     def hash_encoder_backward_kernel(
-            xyzs: ti.types.ndarray(vec3), 
-            hash_map_sizes: ti.types.ndarray(), 
-            offsets: ti.types.ndarray(), 
+            xyzs: ti.types.ndarray(vec3),
+            hash_map_sizes: ti.types.ndarray(),
+            offsets: ti.types.ndarray(),
             output_grad: ti.types.ndarray(feat_vec),
             hash_grad: ti.types.ndarray(feat_vec),
             B: ti.i32,
-        ):
+    ):
         # get hash table embedding
         ti.loop_config(block_dim=block_dim)
         for i, level in ti.ndrange(B, hash_level):
@@ -179,7 +180,7 @@ def build_hash_encoder_kernel(
             grad_dy_temp = output_grad[i, level]
 
             scale = grid_scale(level, log_per_level_scale, base_res)
-            resolution =  grid_resolution(scale)
+            resolution = grid_resolution(scale)
 
             pos = xyz * scale + 0.5
             pos_grid = ti.cast(ti.floor(pos), ti.uint32)
@@ -199,7 +200,7 @@ def build_hash_encoder_kernel(
 
                 index = grid_pos2hash_index(
                     level < begin_fast_hash_level,
-                    pos_grid_local, 
+                    pos_grid_local,
                     resolution,
                     map_size,
                 )
@@ -212,18 +213,18 @@ def build_hash_encoder_kernel(
                     if w_grad_dy_temp.any():
                         hash_grad[index_table] += w_grad_dy_temp
 
-
     return hash_encoder_kernel, hash_encoder_backward_kernel
+
 
 class HashEncoder(torch.nn.Module):
 
     def __init__(
-        self,
-        max_params: float=2**19,
-        levels: int=16.0,
-        base_res: float=16.0,
-        max_res: float=2048.0,
-        feature_per_level: int=2,  
+            self,
+            max_params: float = 2 ** 19,
+            levels: int = 16.0,
+            base_res: float = 16.0,
+            max_res: float = 2048.0,
+            feature_per_level: int = 2,
     ):
         super(HashEncoder, self).__init__()
 
@@ -257,7 +258,7 @@ class HashEncoder(torch.nn.Module):
             resolution = res_in_level_np(
                 i, base_res, self.log_b
             )
-            full_size = resolution**3
+            full_size = resolution ** 3
             # Ensure that the parameter size is a multiple of 8.
             full_size_aligned = align_to(full_size, 8)
 
@@ -272,7 +273,7 @@ class HashEncoder(torch.nn.Module):
             if full_size > params_size_i:
                 if begin_fast_hash_level == levels:
                     begin_fast_hash_level = i
-            
+
             offset += params_size_i
 
         self.begin_fast_hash_level = begin_fast_hash_level
@@ -300,14 +301,14 @@ class HashEncoder(torch.nn.Module):
         self.register_buffer(
             'hash_grad',
             torch.zeros_like(
-                self.hash_table, 
+                self.hash_table,
                 dtype=torch.float32
             ),
         )
 
         (
-            self._hash_encoder_kernel, 
-            self._hash_encoder_backward_kernel 
+            self._hash_encoder_kernel,
+            self._hash_encoder_backward_kernel
         ) = build_hash_encoder_kernel(
             self.log_b,
             base_res=self.base_res,
@@ -315,19 +316,17 @@ class HashEncoder(torch.nn.Module):
             feat_dim=self.feature_per_level,
             begin_fast_hash_level=self.begin_fast_hash_level,
         )
-        
 
         # TODO: use a method to build the autograd function
         class _module_function(torch.autograd.Function):
             @staticmethod
             def forward(ctx, input_pos, params):
-
                 output_embedding = torch.empty(
                     input_pos.shape[0],
                     self.hash_level,
                     self.feature_per_level,
                     dtype=torch_type,
-                    device=input_pos.device, 
+                    device=input_pos.device,
                     # requires_grad=True,
                 )
                 self._hash_encoder_kernel(
@@ -359,11 +358,11 @@ class HashEncoder(torch.nn.Module):
                     input_pos.shape[0],
                 )
                 return None, hash_grad
+
         self._module_function = _module_function.apply
-        
+
     def forward(self, positions):
         return self._module_function(
-            positions.contiguous(), 
+            positions.contiguous(),
             self.hash_table.to(torch.float16).contiguous(),
         ).view(-1, self.out_dim)
-    

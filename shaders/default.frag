@@ -34,8 +34,8 @@ float getSoftShadowX4() {
     vec2 offset = mod(floor(gl_FragCoord.xy), 2.0) * swidth;
     shadow += lookup(-1.5 * swidth + offset.x, 1.5 * swidth - offset.y);
     shadow += lookup(-1.5 * swidth + offset.x, -0.5 * swidth - offset.y);
-    shadow += lookup( 0.5 * swidth + offset.x, 1.5 * swidth - offset.y);
-    shadow += lookup( 0.5 * swidth + offset.x, -0.5 * swidth - offset.y);
+    shadow += lookup(0.5 * swidth + offset.x, 1.5 * swidth - offset.y);
+    shadow += lookup(0.5 * swidth + offset.x, -0.5 * swidth - offset.y);
     return shadow / 4.0;
 }
 
@@ -91,7 +91,7 @@ vec3 getLight(vec3 color) {
     vec3 specular = spec * light.Is;
 
     // shadow
-//    float shadow = getShadow();
+    //    float shadow = getShadow();
     float shadow = getSoftShadowX16();
 
     return color * (ambient + (diffuse + specular) * shadow);

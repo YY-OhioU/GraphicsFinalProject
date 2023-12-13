@@ -17,7 +17,6 @@ class App:
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MAJOR_VERSION, 3)
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MINOR_VERSION, 3)
         pg.display.gl_set_attribute(pg.GL_CONTEXT_PROFILE_MASK, pg.GL_CONTEXT_PROFILE_CORE)
-        # create opengl context
         pg.display.set_mode(self.win_size, flags=pg.OPENGL | pg.DOUBLEBUF)
         self.ctx.enable(flags=mgl.DEPTH_TEST | mgl.CULL_FACE)
 

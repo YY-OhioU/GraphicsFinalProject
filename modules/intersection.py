@@ -7,10 +7,10 @@ from .utils import NEAR_DISTANCE
 
 @ti.kernel
 def ray_aabb_intersect(
-    hits_t: ti.types.ndarray(dtype=vec2, ndim=1),
-    rays_o: ti.types.ndarray(dtype=vec3, ndim=1),
-    rays_d: ti.types.ndarray(dtype=vec3, ndim=1),
-    scale: ti.f32
+        hits_t: ti.types.ndarray(dtype=vec2, ndim=1),
+        rays_o: ti.types.ndarray(dtype=vec3, ndim=1),
+        rays_d: ti.types.ndarray(dtype=vec3, ndim=1),
+        scale: ti.f32
 ):
     xyz_max = ti.Vector([scale, scale, scale])
     xyz_min = -xyz_max
@@ -38,16 +38,15 @@ def ray_aabb_intersect(
 
 
 def ray_aabb_intersection(rays_o, rays_d, scale):
-    
     hits_t = torch.empty(
         rays_o.size(0), 2,
-        device=rays_o.device, 
+        device=rays_o.device,
         dtype=rays_o.dtype
     )
 
     ray_aabb_intersect(
-        hits_t, 
-        rays_o, 
+        hits_t,
+        rays_o,
         rays_d,
         scale
     )

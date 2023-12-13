@@ -10,13 +10,13 @@ NEAR_DISTANCE = 0.01
 
 
 def render(
-    model,
-    rays_o,
-    rays_d,
-    test_time=False,
-    exp_step_factor=0,
-    T_threshold=1e-4,
-    max_samples=MAX_SAMPLES,
+        model,
+        rays_o,
+        rays_d,
+        test_time=False,
+        exp_step_factor=0,
+        T_threshold=1e-4,
+        max_samples=MAX_SAMPLES,
 ):
     """
     Render rays by
@@ -57,16 +57,15 @@ def render(
         )
 
 
-
 @torch.no_grad()
 def __render_rays_test(
-    model,
-    rays_o,
-    rays_d,
-    hits_t,
-    exp_step_factor=0,
-    T_threshold=1e-4,
-    max_samples=MAX_SAMPLES,
+        model,
+        rays_o,
+        rays_d,
+        hits_t,
+        exp_step_factor=0,
+        T_threshold=1e-4,
+        max_samples=MAX_SAMPLES,
 ):
     """
     Render rays by
@@ -159,12 +158,12 @@ def __render_rays_test(
 
 
 def __render_rays_train(
-    model,
-    rays_o,
-    rays_d,
-    hits_t,
-    exp_step_factor=0,
-    T_threshold=1e-4,
+        model,
+        rays_o,
+        rays_d,
+        hits_t,
+        exp_step_factor=0,
+        T_threshold=1e-4,
 ):
     """
     Render rays by
@@ -223,6 +222,6 @@ def __render_rays_train(
         # real
         rgb_bg = torch.zeros(3, device=rays_o.device)
     results['rgb'] = results['rgb'] + \
-                     rgb_bg*rearrange(1-results['opacity'], 'n -> n 1')
+                     rgb_bg * rearrange(1 - results['opacity'], 'n -> n 1')
 
     return results

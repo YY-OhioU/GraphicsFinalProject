@@ -1,9 +1,9 @@
 import os
-import cv2
-import torch
-import numpy as np
 
+import cv2
+import numpy as np
 import taichi as ti
+import torch
 from taichi.math import uvec3
 
 data_type = ti.f32

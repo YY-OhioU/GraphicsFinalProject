@@ -1,22 +1,23 @@
-import torch
 import taichi as ti
+import torch
 
 from .utils import torch_type
 
+
 @ti.kernel
 def volume_rendering_kernel(
-    sigmas: ti.types.ndarray(),
-    rgbs: ti.types.ndarray(),
-    deltas: ti.types.ndarray(),
-    ts: ti.types.ndarray(),
-    rays_a: ti.types.ndarray(),
-    T_threshold: float,
-    T: ti.types.ndarray(),
-    total_samples: ti.types.ndarray(),
-    opacity: ti.types.ndarray(),
-    depth: ti.types.ndarray(),
-    rgb: ti.types.ndarray(),
-    ws: ti.types.ndarray()
+        sigmas: ti.types.ndarray(),
+        rgbs: ti.types.ndarray(),
+        deltas: ti.types.ndarray(),
+        ts: ti.types.ndarray(),
+        rays_a: ti.types.ndarray(),
+        T_threshold: float,
+        T: ti.types.ndarray(),
+        total_samples: ti.types.ndarray(),
+        opacity: ti.types.ndarray(),
+        depth: ti.types.ndarray(),
+        rgb: ti.types.ndarray(),
+        ws: ti.types.ndarray()
 ):
     ti.loop_config(block_dim=128)
     for n in opacity:
@@ -44,9 +45,8 @@ def volume_rendering_kernel(
                 depth[ray_idx] += w * ts[s]
                 opacity[ray_idx] += w
                 ws[s] = w
-                T[s+1] = T_ * (1.0 - a)
+                T[s + 1] = T_ * (1.0 - a)
                 total_samples[ray_idx] += 1
-
 
 
 class VolumeRenderer(torch.nn.Module):
@@ -55,54 +55,55 @@ class VolumeRenderer(torch.nn.Module):
         super(VolumeRenderer, self).__init__()
 
         self._volume_rendering_kernel = volume_rendering_kernel
+
         class _module_function(torch.autograd.Function):
 
             @staticmethod
             def forward(
-                    ctx, 
-                    sigmas, 
-                    rgbs, 
-                    deltas, 
-                    ts, 
-                    rays_a, 
+                    ctx,
+                    sigmas,
+                    rgbs,
+                    deltas,
+                    ts,
+                    rays_a,
                     T_threshold
-                ):
+            ):
                 ctx.T_threshold = T_threshold
                 n_rays = rays_a.shape[0]
                 total_samples = torch.empty_like(rays_a[:, 0])
                 opacity = torch.empty(
-                    n_rays, 
+                    n_rays,
                     dtype=torch_type,
-                    device=rays_a.device, 
+                    device=rays_a.device,
                     requires_grad=True
                 )
                 depth = torch.empty(
-                    n_rays, 
+                    n_rays,
                     dtype=torch_type,
-                    device=rays_a.device, 
+                    device=rays_a.device,
                     requires_grad=True
                 )
                 rgb = torch.empty(
                     n_rays, 3,
                     dtype=torch_type,
-                    device=rays_a.device, 
+                    device=rays_a.device,
                     requires_grad=True
                 )
                 ws = torch.empty_like(
-                    sigmas, 
+                    sigmas,
                     requires_grad=True
                 )
                 T_recap = torch.zeros_like(
-                    sigmas, 
+                    sigmas,
                     requires_grad=True
                 )
 
                 self._volume_rendering_kernel(
-                    sigmas, 
-                    rgbs, 
-                    deltas, 
-                    ts, 
-                    rays_a, 
+                    sigmas,
+                    rgbs,
+                    deltas,
+                    ts,
+                    rays_a,
                     T_threshold,
                     T_recap,
                     total_samples,
@@ -112,16 +113,16 @@ class VolumeRenderer(torch.nn.Module):
                     ws,
                 )
                 ctx.save_for_backward(
-                    sigmas, 
-                    rgbs, 
-                    deltas, 
-                    ts, 
-                    rays_a, 
-                    T_recap, 
-                    total_samples, 
-                    opacity, 
-                    depth, 
-                    rgb, 
+                    sigmas,
+                    rgbs,
+                    deltas,
+                    ts,
+                    rays_a,
+                    T_recap,
+                    total_samples,
+                    opacity,
+                    depth,
+                    rgb,
                     ws,
                 )
 
@@ -129,13 +130,12 @@ class VolumeRenderer(torch.nn.Module):
 
             @staticmethod
             def backward(
-                    ctx, 
-                    dL_dtotal_samples, 
-                    dL_dopacity, 
+                    ctx,
+                    dL_dtotal_samples,
+                    dL_dopacity,
                     dL_ddepth,
                     dL_drgb, dL_dws
-                ):
-
+            ):
                 # get the saved tensors
                 T_threshold = ctx.T_threshold
                 (
@@ -158,11 +158,11 @@ class VolumeRenderer(torch.nn.Module):
                 ws.grad = dL_dws
 
                 self._volume_rendering_kernel.grad(
-                    sigmas, 
-                    rgbs, 
-                    deltas, 
-                    ts, 
-                    rays_a, 
+                    sigmas,
+                    rgbs,
+                    deltas,
+                    ts,
+                    rays_a,
                     T_threshold,
                     T_recap,
                     total_samples,
@@ -177,19 +177,19 @@ class VolumeRenderer(torch.nn.Module):
         self._module_function = _module_function.apply
 
     def forward(
-            self, 
-            sigmas, 
-            rgbs, 
-            deltas, 
-            ts, 
-            rays_a, 
+            self,
+            sigmas,
+            rgbs,
+            deltas,
+            ts,
+            rays_a,
             T_threshold
-        ):
+    ):
         return self._module_function(
-            sigmas.contiguous(), 
-            rgbs.contiguous(), 
-            deltas.contiguous(), 
-            ts.contiguous(), 
-            rays_a.contiguous(), 
+            sigmas.contiguous(),
+            rgbs.contiguous(),
+            deltas.contiguous(),
+            ts.contiguous(),
+            rays_a.contiguous(),
             T_threshold,
         )

@@ -8,11 +8,11 @@ from torch import nn
 from torch.cuda.amp import custom_bwd, custom_fwd
 
 from .rendering import NEAR_DISTANCE
+from .sh_utils import eval_sh
 from .spherical_harmonics import DirEncoder
 from .triplane import TriPlaneEncoder
 from .utils import morton3D, morton3D_invert, packbits
 from .volume_train import VolumeRenderer
-from .sh_utils import eval_sh
 
 
 class TruncExp(torch.autograd.Function):
@@ -34,22 +34,22 @@ class NGP(nn.Module):
 
     def __init__(
             self,
-            scale: float=0.5,
+            scale: float = 0.5,
             # position encoder config
-            pos_encoder_type: str='hash',
-            levels: int=16, # number of levels in hash table
-            feature_per_level: int=2, # number of features per level
-            log2_T: int=19, # maximum number of entries per level 2^19
-            base_res: int=16, # minimum resolution of  hash table
-            max_res: int=2048, # maximum resolution of the hash table
-            half_opt: bool=False, # whether to use half precision, available for hash
+            pos_encoder_type: str = 'hash',
+            levels: int = 16,  # number of levels in hash table
+            feature_per_level: int = 2,  # number of features per level
+            log2_T: int = 19,  # maximum number of entries per level 2^19
+            base_res: int = 16,  # minimum resolution of  hash table
+            max_res: int = 2048,  # maximum resolution of the hash table
+            half_opt: bool = False,  # whether to use half precision, available for hash
             # mlp config
-            xyz_net_width: int=64,
-            xyz_net_depth: int=1,
-            xyz_net_out_dim: int=16,
-            rgb_net_depth: int=2,
-            rgb_net_width: int=64,
-        ):
+            xyz_net_width: int = 64,
+            xyz_net_depth: int = 1,
+            xyz_net_out_dim: int = 16,
+            rgb_net_depth: int = 2,
+            rgb_net_width: int = 64,
+    ):
         super().__init__()
 
         # scene bounding box
@@ -65,14 +65,14 @@ class NGP(nn.Module):
         self.register_buffer(
             'density_bitfield',
             torch.zeros(
-                self.cascades * self.grid_size**3 // 8,
+                self.cascades * self.grid_size ** 3 // 8,
                 dtype=torch.uint8
             )
         )
 
         self.register_buffer(
             'density_grid',
-            torch.zeros(self.cascades, self.grid_size**3),
+            torch.zeros(self.cascades, self.grid_size ** 3),
         )
         self.register_buffer(
             'grid_coords',
@@ -92,7 +92,7 @@ class NGP(nn.Module):
                 from .hash_encoder import HashEncoder
 
             self.pos_encoder = HashEncoder(
-                max_params=2**log2_T,
+                max_params=2 ** log2_T,
                 base_res=base_res,
                 max_res=max_res,
                 levels=levels,
@@ -119,10 +119,10 @@ class NGP(nn.Module):
         self.dir_encoder = DirEncoder()
 
         rgb_input_dim = (
-            self.dir_encoder.out_dim + \
-            self.xyz_encoder.output_dim
+                self.dir_encoder.out_dim + \
+                self.xyz_encoder.output_dim
         )
-        self.rgb_net =  MLP(
+        self.rgb_net = MLP(
             input_dim=rgb_input_dim,
             output_dim=3,
             net_depth=rgb_net_depth,
@@ -198,7 +198,7 @@ class NGP(nn.Module):
             indices2 = torch.nonzero(
                 self.density_grid[c] > density_threshold)[:, 0]
             if len(indices2) > 0:
-                rand_idx = torch.randint(len(indices2), (M, ),
+                rand_idx = torch.randint(len(indices2), (M,),
                                          device=self.density_grid.device)
                 indices2 = indices2[rand_idx]
             coords2 = morton3D_invert(indices2.int())
@@ -209,7 +209,7 @@ class NGP(nn.Module):
         return cells
 
     @torch.no_grad()
-    def mark_invisible_cells(self, K, poses, img_wh, chunk=32**3):
+    def mark_invisible_cells(self, K, poses, img_wh, chunk=32 ** 3):
         """
         mark the cells that aren't covered by the cameras with density -1
         only executed once before training starts
@@ -228,20 +228,20 @@ class NGP(nn.Module):
             indices, coords = cells[c]
             for i in range(0, len(indices), chunk):
                 xyzs = coords[i:i + chunk] / (self.grid_size - 1) * 2 - 1
-                s = min(2**(c - 1), self.scale)
+                s = min(2 ** (c - 1), self.scale)
                 half_grid_size = s / self.grid_size
                 xyzs_w = (xyzs * (s - half_grid_size)).T  # (3, chunk)
                 xyzs_c = w2c_R @ xyzs_w + w2c_T  # (N_cams, 3, chunk)
                 uvd = K @ xyzs_c  # (N_cams, 3, chunk)
                 uv = uvd[:, :2] / uvd[:, 2:]  # (N_cams, 2, chunk)
-                in_image = (uvd[:, 2]>=0)& \
-                           (uv[:, 0]>=0)&(uv[:, 0]<img_wh[0])& \
-                           (uv[:, 1]>=0)&(uv[:, 1]<img_wh[1])
+                in_image = (uvd[:, 2] >= 0) & \
+                           (uv[:, 0] >= 0) & (uv[:, 0] < img_wh[0]) & \
+                           (uv[:, 1] >= 0) & (uv[:, 1] < img_wh[1])
                 covered_by_cam = (uvd[:, 2] >=
                                   NEAR_DISTANCE) & in_image  # (N_cams, chunk)
                 # if the cell is visible by at least one camera
-                self.count_grid[c, indices[i:i+chunk]] = \
-                    count = covered_by_cam.sum(0)/N_cams
+                self.count_grid[c, indices[i:i + chunk]] = \
+                    count = covered_by_cam.sum(0) / N_cams
 
                 too_near_to_cam = (uvd[:, 2] <
                                    NEAR_DISTANCE) & in_image  # (N, chunk)
@@ -249,7 +249,7 @@ class NGP(nn.Module):
                 too_near_to_any_cam = too_near_to_cam.any(0)
                 # a valid cell should be visible by at least one camera and not too close to any camera
                 valid_mask = (count > 0) & (~too_near_to_any_cam)
-                self.density_grid[c, indices[i:i+chunk]] = \
+                self.density_grid[c, indices[i:i + chunk]] = \
                     torch.where(valid_mask, 0., -1.)
 
     @torch.no_grad()
@@ -263,11 +263,11 @@ class NGP(nn.Module):
             cells = self.get_all_cells()
         else:
             cells = self.sample_uniform_and_occupied_cells(
-                self.grid_size**3 // 4, density_threshold)
+                self.grid_size ** 3 // 4, density_threshold)
         # infer sigmas
         for c in range(self.cascades):
             indices, coords = cells[c]
-            s = min(2**(c - 1), self.scale)
+            s = min(2 ** (c - 1), self.scale)
             half_grid_size = s / self.grid_size
             xyzs_w = (coords /
                       (self.grid_size - 1) * 2 - 1) * (s - half_grid_size)
@@ -277,11 +277,11 @@ class NGP(nn.Module):
 
         if erode:
             # My own logic. decay more the cells that are visible to few cameras
-            decay = torch.clamp(decay**(1 / self.count_grid), 0.1, 0.95)
+            decay = torch.clamp(decay ** (1 / self.count_grid), 0.1, 0.95)
         self.density_grid = \
-            torch.where(self.density_grid<0,
+            torch.where(self.density_grid < 0,
                         self.density_grid,
-                        torch.maximum(self.density_grid*decay, density_grid_tmp))
+                        torch.maximum(self.density_grid * decay, density_grid_tmp))
 
         mean_density = self.density_grid[self.density_grid > 0].mean().item()
 
@@ -297,19 +297,19 @@ class MLP(nn.Module):
     '''
 
     def __init__(
-        self,
-        input_dim: int,  # The number of input tensor channels.
-        output_dim: int = None,  # The number of output tensor channels.
-        net_depth: int = 8,  # The depth of the MLP.
-        net_width: int = 256,  # The width of the MLP.
-        skip_layer: int = 4,  # The layer to add skip layers to.
-        hidden_init: Callable = nn.init.xavier_uniform_,
-        hidden_activation: Callable = nn.ReLU(),
-        output_enabled: bool = True,
-        output_init: Optional[Callable] = nn.init.xavier_uniform_,
-        output_activation: Optional[Callable] = nn.Identity(),
-        bias_enabled: bool = True,
-        bias_init: Callable = nn.init.zeros_,
+            self,
+            input_dim: int,  # The number of input tensor channels.
+            output_dim: int = None,  # The number of output tensor channels.
+            net_depth: int = 8,  # The depth of the MLP.
+            net_width: int = 256,  # The width of the MLP.
+            skip_layer: int = 4,  # The layer to add skip layers to.
+            hidden_init: Callable = nn.init.xavier_uniform_,
+            hidden_activation: Callable = nn.ReLU(),
+            output_enabled: bool = True,
+            output_init: Optional[Callable] = nn.init.xavier_uniform_,
+            output_activation: Optional[Callable] = nn.Identity(),
+            bias_enabled: bool = True,
+            bias_init: Callable = nn.init.zeros_,
     ):
         super().__init__()
         self.input_dim = input_dim
@@ -379,18 +379,19 @@ class MLP(nn.Module):
             x = self.output_activation(x)
         return x
 
+
 class VoxelGrid(NGP):
     def __init__(
             self,
-            scale: float=0.5,
-            half_opt: bool=False, # whether to use half precision, available for hash
+            scale: float = 0.5,
+            half_opt: bool = False,  # whether to use half precision, available for hash
             # grid configs
-            sh_degree: int=2,
-            grid_size: int=256,
-            grid_radius: float=0.0125,
-            origin_sh: float=0.,
-            origin_sigma: float=0.1,
-        ):
+            sh_degree: int = 2,
+            grid_size: int = 256,
+            grid_radius: float = 0.0125,
+            origin_sh: float = 0.,
+            origin_sigma: float = 0.1,
+    ):
         super().__init__()
 
         self.sh_degree = sh_degree
@@ -410,14 +411,14 @@ class VoxelGrid(NGP):
         self.register_buffer(
             'density_bitfield',
             torch.zeros(
-                self.cascades * self.grid_size**3 // 8,
+                self.cascades * self.grid_size ** 3 // 8,
                 dtype=torch.uint8
             )
         )
 
         self.register_buffer(
             'density_grid',
-            torch.zeros(self.cascades, self.grid_size**3),
+            torch.zeros(self.cascades, self.grid_size ** 3),
         )
         self.register_buffer(
             'grid_coords',
@@ -447,9 +448,9 @@ class VoxelGrid(NGP):
             grid_res = self.grid_size
         assert len(grid_res) == 3, "grid resolution must be 3 dimension"
         sx, sy, sz = grid_res[0], grid_res[1], grid_res[2]
-        gx_idxs, gy_idxs, gz_idsx= torch.arange(sx, device=self.device), \
-                                   torch.arange(sy, device=self.device), \
-                                   torch.arange(sz, device=self.device)
+        gx_idxs, gy_idxs, gz_idsx = torch.arange(sx, device=self.device), \
+            torch.arange(sy, device=self.device), \
+            torch.arange(sz, device=self.device)
         cx_idxs, cy_idxs, cz_idxs = torch.meshgrid(gx_idxs, gy_idxs, gz_idsx, indexing='ij')
 
         # self.grid_idxs = create_meshgrid3d(grid_res[0], grid_res[1], grid_res[2], False, dtype=torch.int32).reshape(-1, 3)
@@ -468,7 +469,7 @@ class VoxelGrid(NGP):
         # initialize grid datas
         self.sh_fields = nn.Parameter(
             torch.ones(
-                (grids.shape[0],  grids.shape[1], grids.shape[2], self.sh_dim * 3),
+                (grids.shape[0], grids.shape[1], grids.shape[2], self.sh_dim * 3),
                 dtype=torch.float32,
                 device=self.device
             ) * self.origin_sh,
@@ -477,7 +478,7 @@ class VoxelGrid(NGP):
 
         self.density_fields = nn.Parameter(
             torch.ones(
-                (grids.shape[0],  grids.shape[1], grids.shape[2], 1),
+                (grids.shape[0], grids.shape[1], grids.shape[2], 1),
                 dtype=torch.float32,
                 device=self.device
             ) * self.origin_sigma,
@@ -519,7 +520,7 @@ class VoxelGrid(NGP):
         return x_idx, y_idx, z_idx
 
     def normalize_samples(self, pts):
-        return (pts- self.grid_normalized_coords.min(0)[0]) / self.grid_radius
+        return (pts - self.grid_normalized_coords.min(0)[0]) / self.grid_radius
 
     def trilinear_interpolation(self, bundles, weight_a, weight_b):
         c00 = bundles[0] * weight_a[:, 2:] + bundles[1] * weight_b[:, 2:]
@@ -562,7 +563,6 @@ class VoxelGrid(NGP):
 
         return query_results
 
-
     def forward(self, pts, dirs):
         normalized_idx = self.normalize_samples(pts)
         samples_result = self.query_grids(normalized_idx)
@@ -570,7 +570,7 @@ class VoxelGrid(NGP):
         samples_rgb = torch.empty((pts.shape(0), pts.shape(1), 3), device=samples_sh.device)
         sh_dim = self.net.sh_dim
         for i in range(3):
-            sh_coeffs = samples_sh[:, :, sh_dim*i:sh_dim*(i+1)]
+            sh_coeffs = samples_sh[:, :, sh_dim * i:sh_dim * (i + 1)]
             samples_rgb[:, :, i] = eval_sh(self.sh_degree, sh_coeffs, viewdirs)
         return samples_density, samples_rgb
 

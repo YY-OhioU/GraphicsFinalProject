@@ -5,8 +5,9 @@ import numpy as np
 from plyfile import PlyData
 
 CWD = Path(__file__).parent
+PROJECT_ROOT = CWD.parent
 
-plydata = PlyData.read(CWD / "models" / "School_point_cloud.ply")
+plydata = PlyData.read(PROJECT_ROOT / "models" / "point_cloud.ply")
 print(plydata)
 print(plydata["vertex"][0])
 converted = np.array(plydata['vertex']).astype(
@@ -18,5 +19,4 @@ print(type(plydata['vertex'][0]))
 first_row = converted[0]
 print("converted: ", first_row)
 
-pickle.dump(converted, open(CWD / 'models' / 'school_point_cloud.pkl', 'wb'))
-
+pickle.dump(converted, open(PROJECT_ROOT / 'models' / 'point_cloud.pkl', 'wb'))

@@ -153,7 +153,7 @@ class Campus(BaseModel):
         # plydata = PlyData.read(CWD / "models" / "School_point_cloud.ply")
         # vertex_data = np.array(plydata['vertex']).astype(
         #     [('x', 'f8'), ('y', 'f8'), ('z', 'f8'), ('red', 'f4'), ('green', 'f4'), ('blue', 'f4')])
-        obj_file = CWD / 'models' / 'school_point_cloud.pkl'
+        obj_file = CWD / 'models' / 'point_cloud.pkl'
         with open(obj_file, 'rb') as f:
             vertex_data = pickle.load(f)
         d_format = '3f8 3f'
